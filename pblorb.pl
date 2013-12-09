@@ -3,7 +3,7 @@
 #  perlBlorb: a perl script for creating Blorb files
 #  (c) Graham Nelson 1998
 #
-# Modifications applied by David Griffith in 2012
+# Modifications applied by David Griffith in 2012, 2013
 # ---------------------------------------------------------------------------
 
 $temp_prefix     = 'ram:';   # Prefix for location of temporary directory
@@ -151,6 +151,7 @@ sub end_chunk
     {   $blen = read(CHUNK, $buffer, 1024);
         $size = $size + $blen;
     }
+
     close(CHUNK);
 
     if ($chunk_id_array[$chunk_count] ne "Snd1") {
@@ -233,9 +234,47 @@ sub executable_chunk
 
 # ---------------------------------------------------------------------------
 
+# The mod file formats listed here are the ones supported by libmodplug,
+# which is the mod player library used in Unix Frotz and Windows Frotz.
+# 
+sub ismod
+{
+    local $ext = $_[0];
+
+    if ($ext eq "mod") { return 1; }
+    if ($ext eq "xm")  { return 1; }
+    if ($ext eq "it")  { return 1; }
+    if ($ext eq "s3m") { return 1; }
+    if ($ext eq "669") { return 1; }
+    if ($ext eq "amf") { return 1; }
+    if ($ext eq "ams") { return 1; }
+    if ($ext eq "dbm") { return 1; }
+    if ($ext eq "dmf") { return 1; }
+    if ($ext eq "dsm") { return 1; }
+    if ($ext eq "far") { return 1; }
+    if ($ext eq "j2b") { return 1; }
+    if ($ext eq "mdl") { return 1; }
+    if ($ext eq "mt2") { return 1; }
+    if ($ext eq "mtm") { return 1; }
+    if ($ext eq "otk") { return 1; }
+    if ($ext eq "psm") { return 1; }
+    if ($ext eq "ptm") { return 1; }
+    if ($ext eq "stm") { return 1; }
+    if ($ext eq "utl") { return 1; }
+    if ($ext eq "umx") { return 1; }
+    if ($ext eq "fnk") { return 1; } # libmodplug doesn't support this one.
+    return 0;
+}
+
+
+
+# ---------------------------------------------------------------------------
+
 sub identify
 {   print STDOUT "Constant $_[0] = $_[1];\n";
 }
+
+
 
 sub interpret
 {   local $command = $_[0];
@@ -438,6 +477,8 @@ sub interpret
         $fxfile = $2;
         $repeats = $3;
 
+	$ext = ($fxfile =~ m/([^.]+)$/)[0];
+
         if ($snumt =~ /^\d+$/m)
         {   $snum = $snumt;
             if ($snum < $next_snum)
@@ -455,11 +496,13 @@ sub interpret
             }
         }
 
-        if ($repeats eq "music")
-        {   sound2_chunk($snum, $fxfile);
+        if (ismod($ext))
+        {
+	    sound2_chunk($snum, $fxfile);
             return;
         }
-        if ($repeats eq "song")
+
+        if ($ext eq "ogg")
         {   sound3_chunk($snum, $fxfile);
             return;
         }
@@ -614,7 +657,7 @@ for ($x = 0; $x < $chunk_count; $x = $x + 1)
         $scount = $scount + 1;
     }
     if ($type eq "Snd3")
-    {   $type = "SONG";
+    {   $type = "OGGV";
         $sound_numbering[$chunk_number_array[$x]] = $x;
         $scount = $scount + 1;
     }
