@@ -2,16 +2,18 @@
 # ---------------------------------------------------------------------------
 #  perlBlorb: a perl script for creating Blorb files
 #  (c) Graham Nelson 1998
+#
+# Modifications applied by David Griffith in 2012
 # ---------------------------------------------------------------------------
 
 $temp_prefix     = 'ram:';   # Prefix for location of temporary directory
-$file_sep        = '.';      # Character used to separate directories in
+$file_sep        = '/';      # Character used to separate directories in
                              # pathnames (on most systems this will be /)
 
-$blurb_filename  = '$.Adventure.Blorb.BLURB';
-$output_filename = '>$.Adventure.Blorb.blorbfile';
+$blurb_filename  = 'input.blurb';
+$output_filename = '>output.blb';
 
-$version = "perlBlorb 1.03";
+$version = "perlBlorb 1.04";
 
 ($sec,$min,$hour,$mday,$month,$year,$wday,$yday,$isdst) = localtime(time);
 
@@ -47,7 +49,7 @@ sub ensure_tempdir
     {   closedir(TDIR);
     }
     else
-    {   if (mkdir($temp_dir, 0) == 0)
+    {   if (mkdir($temp_dir, 0700) == 0)
         { die("Fatal error: unable to create working directory $temp_dir");
         }
     }
@@ -112,7 +114,6 @@ sub begin_chunk
     if ($chunk_filename eq "")
     {   $chunk_filename = sprintf('%s%s%d',
             $temp_dir, $file_sep, $chunk_count);
-
         open(CHUNK, sprintf(">%s",$chunk_filename))
             or fatal("unable to create temporary file $chunk_filename");
         binmode CHUNK;
@@ -152,17 +153,20 @@ sub end_chunk
     }
     close(CHUNK);
 
-    if ($chunk_id_array[$chunk_count] ne "Snd1")
-    {   $size = $size + 8;
+    if ($chunk_id_array[$chunk_count] ne "Snd1") {
+        $size = $size + 8;
     }
 
     $chunk_size_array[$chunk_count] = $size;
 
-    if ($size % 2 == 1) { $size = $size + 1; }
+    # Pad chunk to an even number of bytes
+    if ($size % 2 == 1) { 
+	$size = $size + 1;
+    }
 
     $total_size = $total_size + $size;
 
-    $chunk_count = $chunk_count + 1;
+    $chunk_count++;
 }
 
 sub author_chunk
@@ -461,6 +465,7 @@ sub interpret
         }
 
         sound1_chunk($snum, $fxfile);
+
         if ($repeats =~ /^repeat\s+forever\s*$/m)
         {   $looped_fx[$repeaters] = $snum;
             $looped_num[$repeaters] = 0;
@@ -491,6 +496,14 @@ sub interpret
 }
 
 # ---------------------------------------------------------------------------
+
+if ($ARGV[0]) {
+	$blurb_filename = $ARGV[0];
+}
+
+if ($ARGV[1]) {
+	$output_filename = "> $ARGV[1]";
+}
 
 ensure_tempdir();
 
@@ -609,23 +622,25 @@ for ($x = 0; $x < $chunk_count; $x = $x + 1)
     {   $type = "ZCOD";
     }
 
-    if ($type ne "AIFF")
-    {   print CHUNK $type;
+    if ($type ne "AIFF") {
+        print CHUNK $type;
         four_word(($chunk_size_array[$x]) - 8);
     }
+
+#print "type: $type  size: ". $chunk_size_array[$x]."\n";
 
     $chunk_filename = $chunk_filename_array[$x];
     open(CHUNKSUB, $chunk_filename)
         or fatal("unable to read data from $chunk_filename");
     binmode(CHUNKSUB);
     
-    while(read CHUNKSUB, $portion, 16384)
-    {   print CHUNK $portion;
+    while(read CHUNKSUB, $portion, 16384) {
+	print CHUNK $portion;
     }
     close(CHUNKSUB);
 
-    if (($chunk_size_array[$x] % 2) == 1)
-    {   printf CHUNK sprintf("%c", 0);
+    if (($chunk_size_array[$x] % 2) == 1) {
+	printf CHUNK sprintf("%c", 0);
     }
 }
 
