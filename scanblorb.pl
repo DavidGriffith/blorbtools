@@ -1,22 +1,52 @@
 #!/usr/bin/perl -w
 
 #  scanBlorb: a perl script for scanning Blorb files
-#  (c) Graham Nelson 1998 (original script)
-#  (c) Richard Poole 2004 (modifications)
+#  (c) Graham Nelson  1998 (original script)
+#  (c) Richard Poole  2004
+#  (c) David Griffith 2015
 
 use strict;
 use Getopt::Long;
+use Pod::Usage;
 
 require 5.6.0;
 
 my $buffer;
-my $dump_images;
+my %options;
 my %images;
+my %sounds;
+my %execs;
 
-GetOptions("dump-images" => \$dump_images);
+my $imagecount;
+my $execcount;
+my $soundcount;
+
+GetOptions('usage|?'	=> \$options{usage},
+	'h|help'	=> \$options{help},
+	'i|images'	=> \$options{images},
+	's|sound'	=> \$options{sound},
+	'e|exec'	=> \$options{exec},
+	'a|all'		=> \$options{all}
+	);  
+
 my $input_filename = $ARGV[0];
+my $output_filename;
 
-my $version = "scanBlorb 2.0";
+
+pod2usage(1) if $options{usage};
+pod2usage(-verbose => 3) if $options{help};
+pod2usage(1) if !$input_filename;
+
+
+
+if ($options{all}) {
+	$options{images} = 1;
+	$options{sound} = 1;
+	$options{exec} = 1;
+}
+
+
+my $version = "scanBlorb 3.0";
 
 my ($sec,$min,$hour,$mday,$month,$year) = (localtime(time))[0, 1, 2, 3, 4, 5];
 
@@ -32,7 +62,8 @@ read BLORB, $buffer, 12;
 
 my ($groupid, $length, $type) = unpack("NNN", $buffer);
 
-$groupid == 0x464F524D or die "Not a valid FORM file!\n";
+if (!$groupid || ($groupid != 0x464F524D)) { die "Not a valid FORM file!\n";}
+
 $type == 0x49465253 or die "Not a Blorb file!\n";
 
 print "File length is apparently $length bytes\n";
@@ -84,19 +115,48 @@ for($pos = 12; $pos < $length; $pos += $size + ($size % 2) + 8) {
 	    print "\tRelease number $relnum\n";
 	}
 
-	# image chunk
-	if($type eq "PNG " or $type eq "JPEG") {
-		next unless $dump_images;
-		my $errstr = sprintf("No resource information for image at %0x06x\n", $pos);
-		my $filename = $images{$pos} . ($type eq "PNG " ? ".png" : ".jpg")
-			or warn($errstr), next;
-		open IMAGEFH, ">$filename"
-			or warn "Failed to open handle for $filename: $!\n", next;
-		binmode IMAGEFH;
-		local $\ = undef;
-		print IMAGEFH $chunkdata;
-		close IMAGEFH
-			or warn "Failed to close handle for $filename: $!\n", next;
+	# Dumping Exec chunks
+	if ($options{exec} && ($type eq "ZCOD" or $type eq "GLUL")) {
+		$output_filename = sprintf '%0*d', length($execcount) , $execs{$pos};
+		if ($type eq "ZCOD") {
+			$output_filename .= ".z";
+		} elsif ($type eq "GLUL") {
+			$output_filename .= ".ulx";
+		} else {
+			warn_resource($pos), next;
+		}
+		dumpchunk($output_filename, $pos, $chunkdata);
+	}
+
+	# Dumping Snd chunks
+	if ($options{sound} && ($type eq "FORM" or $type eq "MOD " or $type eq "OGGV" or $type eq "SONG")) {
+		$output_filename = sprintf '%0*d', length($soundcount) , $sounds{$pos};
+		if ($type eq "FORM") {
+			$output_filename .= ".aiff";
+			$chunkdata = "FORM" . pack("N", $size) . $chunkdata;
+		} elsif ($type eq "MOD ") {
+			$output_filename .= ".mod";
+		} elsif ($type eq "OGGV") {
+			$output_filename .= ".ogg";
+		} elsif ($type eq "SONG") {
+			$output_filename .= ".song";
+		} else {
+			warn_resource($pos), next;
+		}
+		dumpchunk($output_filename, $pos, $chunkdata);
+	}
+
+	# Dumping Pict chunks
+	if ($options{images} && ($type eq "PNG " or $type eq "JPEG")) {
+		$output_filename = sprintf '%0*d', length($imagecount) , $images{$pos};
+		if ($type eq "PNG ") {
+			$output_filename .= ".png";
+		} elsif ($type eq "JPEG") {
+			$output_filename .= ".jpg";
+		} else {
+			warn_resource($pos), next;
+		}
+		dumpchunk($output_filename, $pos, $chunkdata);
 	}
 
 	# resource index chunk: always present
@@ -110,9 +170,87 @@ for($pos = 12; $pos < $length; $pos += $size + ($size % 2) + 8) {
 				unpack("a4 NN NN", substr($chunkdata, 0, 12, ""));
 			printf("\t\t%06x: %s %d\n", $start, $usage, $number);
 			$images{$start} = $number if $usage eq "Pict";
+			$execs{$start} = $number if $usage eq "Exec";
+			$sounds{$start} = $number if $usage eq "Snd ";
 		}
+		$imagecount = keys %images;		
+		$soundcount = keys %sounds;
+		$execcount = keys %execs;
 	}
 }
 
 close(BLORB);
 
+
+sub warn_resource {
+	my ($pos, @junk) = @_;
+	my $errstr = sprintf("No resource information for chunk at %0x06x\n", $pos);
+	warn($errstr);
+}
+
+sub dumpchunk {
+	my ($filename, $pos, $chunkdata, @junk) = @_;
+
+	open CHUNKFH, ">$filename"
+		or warn "Failed to open handle for $filename: $!\n", next;
+	binmode CHUNKFH;
+	$\ = undef;
+	print CHUNKFH $chunkdata;
+	close CHUNKFH
+		or warn "Failed to close handle for $filename: $!\n", next;
+}
+
+__END__
+
+
+=head1 NAME
+
+scanblorb.pl - Examine a Blorb resource file and optionally dump its contents
+
+=head1 SYNOPSIS
+
+scanblorb.pl [options...] <blorbfile>
+
+Use -h or --help for verbose help.
+
+=head1 DESCRIPTION
+
+Reads a Blorb interactive fiction resource file, checks for validity, 
+and reports on its contents.  The contents of the Blorb file can also be 
+extracted to individual files.
+
+=head2 Option flags
+
+  -?		Print simple usage message.
+  -h --help	Print verbose help message.
+  -a --all	Extract all embedded file chunks.
+  -e --exec	Extract only the executable chunk.
+  -i --images	Extract only image chunks.
+  -s --sound	Extract only sound chunks.
+
+=head1 APPLICATION
+
+This script is intended to assist in dissecting and reverse-engineering
+Blorb files.  Currently chunks having to do with Zcode and Glulx 
+executable formats are recognized.
+
+Running the script without any options on a Blorb file will result in a 
+list of chunks found and some information about them.  Chunks that 
+started off as standalone files may be extracted to the currect 
+directory by using the appropriate option.  The -a option will cause all 
+available embedded files to be extracted.
+
+Version 3.0
+
+=head1 NOTES
+
+The Blorb format was created by Andrew Plotkin in 1998.  This script 
+conforms to version 2.0.4 of the Blorb Specification.  See 
+http://www.eblong.com/zarf/blorb/
+
+=head1 AUTHORS
+(c) Graham Nelson  1998 (original script up to 1.03)
+(c) Richard Poole  2004 (modifications up to 2.0)
+(c) David Griffith 2015 (modifications from 3.0 on)
+	Added support for extracting chunks.
+=cut
