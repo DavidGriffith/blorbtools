@@ -53,6 +53,22 @@ my ($sec,$min,$hour,$mday,$month,$year) = (localtime(time))[0, 1, 2, 3, 4, 5];
 my $blorbdate = sprintf("%04d/%02d/%02d at %02d:%02d.%02d",
                  $year + 1900, $month + 1, $mday, $hour, $min, $sec);
 
+my @adrift_magic_380 = (0x3c, 0x42, 0x3f, 0xc9,
+			0x6a, 0x87, 0xc2, 0xcf,
+			0x94, 0x45, 0x36, 0x61);
+
+my @adrift_magic_390 = (0x3c, 0x42, 0x3f, 0xc9,
+			0x6a, 0x87, 0xc2, 0xcf,
+			0x94, 0x45, 0x37, 0x61);
+
+my @adrift_magic_400 = (0x3c, 0x42, 0x3f, 0xc9,
+			0x6a, 0x87, 0xc2, 0xcf,
+			0x93, 0x45, 0x3e, 0x61);
+
+my @adrift_magic_500 = (0x3c, 0x42, 0x3f, 0xc9,
+			0x6a, 0x87, 0xc2, 0xcf,
+			0x92, 0x45, 0x3e, 0x61);
+
 print STDOUT "$version [executing on $blorbdate]\n\n";
 
 open (BLORB, $input_filename) or die "Can't load $input_filename.";
@@ -92,7 +108,7 @@ for($pos = 12; $pos < $length; $pos += $size + ($size % 2) + 8) {
 	# zcode executable: look into its magic insides
 	if ($type eq "ZCOD") {
 		my ($version, $release) = (unpack("CCn", $chunkdata))[0,2];
-	    my $serialcode = substr($chunkdata, 0x12, 6);
+		my $serialcode = substr($chunkdata, 0x12, 6);
 	    print "\t$release.$serialcode (version $version)\n";
 	}
 
@@ -100,6 +116,23 @@ for($pos = 12; $pos < $length; $pos += $size + ($size % 2) + 8) {
 	if($type eq "GLUL") {
 		my ($major, $minor, $minimus) = (unpack("xxxxnCC", $chunkdata))[0,1,2];
 		print "\tGlulx version $major.$minor.$minimus\n";
+	}
+
+	# adrift executable: look into its magic insides
+	if ($type eq "ADRI") {
+		my @adrift_header = unpack("CCCCCCCCCCCC", $chunkdata);
+		if (@adrift_header ~~ @adrift_magic_380) {
+			$version = "3.80";
+		} elsif (@adrift_header ~~ @adrift_magic_390) {
+			$version = "3.90";
+		} elsif (@adrift_header ~~ @adrift_magic_400) {
+			$version = "4.00";
+		} elsif (@adrift_header ~~ @adrift_magic_500) {
+			$version = "5.0";
+		} else {
+			$version = "unknown";
+		}
+		print "\tADRIFT Generator version $version\n";
 	}
 
 	# game identifier chunk: probably only if no executable chunk
@@ -116,12 +149,16 @@ for($pos = 12; $pos < $length; $pos += $size + ($size % 2) + 8) {
 	}
 
 	# Dumping Exec chunks
-	if ($options{exec} && ($type eq "ZCOD" or $type eq "GLUL")) {
-		$output_filename = sprintf '%0*d', length($execcount) , $execs{$pos};
+	if ($options{exec} && ($type eq "ZCOD" or $type eq "GLUL" or 
+			$type eq "ADRI")) {
+		$output_filename = "exec_";
+		$output_filename .= sprintf '%0*d', length($execcount) , $execs{$pos};
 		if ($type eq "ZCOD") {
-			$output_filename .= ".z";
+			$output_filename .= ".z" . unpack("C", $chunkdata);
 		} elsif ($type eq "GLUL") {
 			$output_filename .= ".ulx";
+		} elsif ($type eq "ADRI") {
+			$output_filename .= ".taf";
 		} else {
 			warn_resource($pos), next;
 		}
@@ -129,8 +166,12 @@ for($pos = 12; $pos < $length; $pos += $size + ($size % 2) + 8) {
 	}
 
 	# Dumping Snd chunks
-	if ($options{sound} && ($type eq "FORM" or $type eq "MOD " or $type eq "OGGV" or $type eq "SONG")) {
-		$output_filename = sprintf '%0*d', length($soundcount) , $sounds{$pos};
+	if ($options{sound} && ($type eq "FORM" or $type eq "MOD " or 
+			$type eq "OGGV" or $type eq "SONG" or
+			$type eq "MP3 " or $type eq "WAVE" or
+			$type eq "MIDI")) {
+		$output_filename = "snd_";
+		$output_filename .= sprintf '%0*d', length($soundcount) , $sounds{$pos};
 		if ($type eq "FORM") {
 			$output_filename .= ".aiff";
 			$chunkdata = "FORM" . pack("N", $size) . $chunkdata;
@@ -140,6 +181,12 @@ for($pos = 12; $pos < $length; $pos += $size + ($size % 2) + 8) {
 			$output_filename .= ".ogg";
 		} elsif ($type eq "SONG") {
 			$output_filename .= ".song";
+		} elsif ($type eq "MP3 ") {
+			$output_filename .= ".mp3";
+		} elsif ($type eq "WAVE") {
+			$output_filename .= ".wav";
+		} elsif ($type eq "MIDI") {
+			$output_filename .= ".mid";
 		} else {
 			warn_resource($pos), next;
 		}
@@ -147,12 +194,15 @@ for($pos = 12; $pos < $length; $pos += $size + ($size % 2) + 8) {
 	}
 
 	# Dumping Pict chunks
-	if ($options{images} && ($type eq "PNG " or $type eq "JPEG")) {
-		$output_filename = sprintf '%0*d', length($imagecount) , $images{$pos};
+	if ($options{images} && ($type eq "PNG " or $type eq "JPEG" or $type eq "GIF ")) {
+		$output_filename = "pict_";
+		$output_filename .= sprintf '%0*d', length($imagecount) , $images{$pos};
 		if ($type eq "PNG ") {
 			$output_filename .= ".png";
 		} elsif ($type eq "JPEG") {
 			$output_filename .= ".jpg";
+		} elsif ($type eq "GIF ") {
+			$output_filename .= ".gif";
 		} else {
 			warn_resource($pos), next;
 		}
@@ -231,8 +281,8 @@ extracted to individual files.
 =head1 APPLICATION
 
 This script is intended to assist in dissecting and reverse-engineering
-Blorb files.  Currently chunks having to do with Zcode and Glulx 
-executable formats are recognized.
+Blorb files.  Currently chunks having to do with Zcode, Glulx, and 
+Adrift executable formats are recognized.
 
 Running the script without any options on a Blorb file will result in a 
 list of chunks found and some information about them.  Chunks that 
