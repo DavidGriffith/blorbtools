@@ -100,7 +100,7 @@ sub begin_chunk
 
     $chunk_important_array[$chunk_count] = 0;
     if (($id eq "Pict") || ($id eq "AIFF") || ($id eq "MOD ")
-        || ($id eq "OGGV") || ($id eq "Exec"))
+        || ($id eq "OGGV") || ($id eq "ZCOD") || ($id eq "GLUL"))
     {   $chunk_important_array[$chunk_count] = 1;
         $important_count = $important_count + 1;        
     }
@@ -178,12 +178,6 @@ sub picture_chunk
 {   local $n = $_[0];
     local $f = $_[1];
     begin_chunk("Pict", $n, $f);
-    end_chunk();
-}
-
-sub executable_chunk
-{   local $f = $_[0];
-    begin_chunk("Exec", 0, $f);
     end_chunk();
 }
 
@@ -313,9 +307,19 @@ sub interpret
         return;
     }
     if ($command =~ /^\s*storyfile\s+"(.*)"\s+include\s*$/m)
-    {   executable_chunk($1);
+    {   my $filename = $1;
+	my $ext = ($filename =~ m/([^.]+)$/)[0];
+	if ($ext =~ m/z[1-8]/) {
+	    begin_chunk("ZCOD", 0, $filename);
+	} elsif ($ext eq "ulx") {
+	    begin_chunk("GLUL", 0, $filename);
+	} else {
+	    fatal("unknown executable extension $exec");
+	}
+	end_chunk();
         return;
     }
+    # Do we need to generate an IFhd chunk?
     if ($command =~ /^\s*storyfile\s+"(.*)"/)
     {   open(IDFILE, $1) or fatal("unable to open story file $1");
         binmode(IDFILE);
@@ -587,6 +591,9 @@ for ($x = 0; $x < $chunk_count; $x = $x + 1)
         if (($type eq "AIFF") || ($type eq "MOD ") || ($type eq "OGGV"))
         {   $type = "Snd ";
         }
+	if (($type eq "ZCOD") || ($type eq "GLUL"))
+	{   $type = "Exec";
+	}
         print CHUNK $type;
         four_word($chunk_number_array[$x]);
         four_word($past_idx_offset + $chunk_offset_array[$x]);
@@ -618,10 +625,6 @@ for ($x = 0; $x < $chunk_count; $x = $x + 1)
     {   $sound_numbering[$chunk_number_array[$x]] = $x;
         $scount = $scount + 1;
     }
-    if ($type eq "Exec")
-    {   $type = "ZCOD";
-    }
-
     if ($type ne "AIFF") {
         print CHUNK $type;
         four_word(($chunk_size_array[$x]) - 8);
