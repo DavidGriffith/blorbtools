@@ -99,8 +99,8 @@ sub begin_chunk
     $chunk_filename_array[$chunk_count] = $chunk_filename;
 
     $chunk_important_array[$chunk_count] = 0;
-    if (($id eq "Pict") || ($id eq "Snd1") || ($id eq "Snd2")
-        || ($id eq "Snd3") || ($id eq "Exec"))
+    if (($id eq "Pict") || ($id eq "AIFF") || ($id eq "MOD ")
+        || ($id eq "OGGV") || ($id eq "Exec"))
     {   $chunk_important_array[$chunk_count] = 1;
         $important_count = $important_count + 1;        
     }
@@ -130,7 +130,7 @@ sub end_chunk
 
     close(CHUNK);
 
-    if ($chunk_id_array[$chunk_count] ne "Snd1") {
+    if ($chunk_id_array[$chunk_count] ne "AIFF") {
         $size = $size + 8;
     }
 
@@ -178,27 +178,6 @@ sub picture_chunk
 {   local $n = $_[0];
     local $f = $_[1];
     begin_chunk("Pict", $n, $f);
-    end_chunk();
-}
-
-sub sound1_chunk
-{   local $n = $_[0];
-    local $f = $_[1];
-    begin_chunk("Snd1", $n, $f);
-    end_chunk();
-}
-
-sub sound2_chunk
-{   local $n = $_[0];
-    local $f = $_[1];
-    begin_chunk("Snd2", $n, $f);
-    end_chunk();
-}
-
-sub sound3_chunk
-{   local $n = $_[0];
-    local $f = $_[1];
-    begin_chunk("Snd3", $n, $f);
     end_chunk();
 }
 
@@ -473,17 +452,21 @@ sub interpret
         }
 
         if (ismod($ext))
-        {
-	    sound2_chunk($snum, $fxfile);
+        {   begin_chunk("MOD ", $snum, $fxfile);
+	    end_chunk();
             return;
         }
 
         if ($ext eq "ogg")
-        {   sound3_chunk($snum, $fxfile);
-            return;
-        }
+        {   begin_chunk("OGGV", $snum, $fxfile);
+	    end_chunk();
+	    return;
+	}
 
-        sound1_chunk($snum, $fxfile);
+	if ($ext eq "aiff")
+	{   begin_chunk("AIFF", $snum, $fxfile);
+	    end_chunk();
+	}
 
         if ($repeats =~ /^repeat\s+forever\s*$/m)
         {   $looped_fx[$repeaters] = $snum;
@@ -593,6 +576,7 @@ print CHUNK "FORM";
 four_word($iff_size - 8);
 print CHUNK "IFRS";
 
+# Resource Index chunk
 print CHUNK "RIdx";
 four_word(4 + $important_count*12);
 four_word($important_count);
@@ -600,7 +584,7 @@ four_word($important_count);
 for ($x = 0; $x < $chunk_count; $x = $x + 1)
 {   if ($chunk_important_array[$x] == 1)
     {   $type = $chunk_id_array[$x];
-        if (($type eq "Snd1") || ($type eq "Snd2") || ($type eq "Snd3"))
+        if (($type eq "AIFF") || ($type eq "MOD ") || ($type eq "OGGV"))
         {   $type = "Snd ";
         }
         print CHUNK $type;
@@ -622,19 +606,16 @@ for ($x = 0; $x < $chunk_count; $x = $x + 1)
         $picture_numbering[$chunk_number_array[$x]] = $x;
         $pcount = $pcount + 1;
     }
-    if ($type eq "Snd1")
-    {   $type = "AIFF";
-        $sound_numbering[$chunk_number_array[$x]] = $x;
+    if ($type eq "AIFF")
+    {   $sound_numbering[$chunk_number_array[$x]] = $x;
         $scount = $scount + 1;
     }
-    if ($type eq "Snd2")
-    {   $type = "MOD ";
-        $sound_numbering[$chunk_number_array[$x]] = $x;
+    if ($type eq "MOD ")
+    {   $sound_numbering[$chunk_number_array[$x]] = $x;
         $scount = $scount + 1;
     }
-    if ($type eq "Snd3")
-    {   $type = "OGGV";
-        $sound_numbering[$chunk_number_array[$x]] = $x;
+    if ($type eq "OGGV")
+    {   $sound_numbering[$chunk_number_array[$x]] = $x;
         $scount = $scount + 1;
     }
     if ($type eq "Exec")
