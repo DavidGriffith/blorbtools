@@ -6,7 +6,9 @@
 # Modifications applied by David Griffith in 2012, 2013
 # ---------------------------------------------------------------------------
 
-$temp_prefix     = 'ram:';   # Prefix for location of temporary directory
+use File::Temp qw/ tempfile tempdir /;
+
+
 $file_sep        = '/';      # Character used to separate directories in
                              # pathnames (on most systems this will be /)
 
@@ -20,7 +22,7 @@ $version = "perlBlorb 1.04";
 $blorbdate = sprintf("%02d%02d%02d at %02d:%02d.%02d",
                  $year, $month + 1, $mday, $hour, $min, $sec);
 
-$temp_dir = sprintf("%sB_%02d%02d%02d", $temp_prefix, $hour, $min, $sec);
+$temp_dir = tempdir(CLEANUP => 1);
 
 print STDOUT "! $version [executing on $blorbdate]\n";
 print STDOUT "! The blorb spell (safely protect a small object ";
@@ -44,31 +46,6 @@ $resolution_on = 0;
 
 # ---------------------------------------------------------------------------
 
-sub ensure_tempdir
-{   if (opendir(TDIR, $temp_dir))
-    {   closedir(TDIR);
-    }
-    else
-    {   if (mkdir($temp_dir, 0700) == 0)
-        { die("Fatal error: unable to create working directory $temp_dir");
-        }
-    }
-}
-
-sub remove_tempdir
-{   if (opendir(TDIR, $temp_dir))
-    {   @allfiles = grep !/^\./, readdir TDIR;
-        closedir(TDIR);
-
-        foreach $file (@allfiles)
-        {   $fullfile = sprintf("%s%s%s", $temp_dir, $file_sep, $file);
-            unlink $fullfile;
-        }
-
-        rmdir($temp_dir);
-    }
-}
-
 # ---------------------------------------------------------------------------
 
 sub error
@@ -78,7 +55,6 @@ sub error
 
 sub fatal
 {   local $m = $_[0];
-    remove_tempdir();
     die "$blurb_filename, line $blurb_line: Fatal error: $m\n";
 }
 
@@ -548,9 +524,9 @@ if ($ARGV[1]) {
 	$output_filename = "> $ARGV[1]";
 }
 
-ensure_tempdir();
 
 author_chunk("$version on $blorbdate");
+
 
 open (BLURB, $blurb_filename)
     or fatal("can't open blurb file $blurb_filename");
@@ -691,7 +667,5 @@ close(CHUNK);
 
 print STDOUT "! Completed: size $iff_size bytes ";
 print STDOUT "($pcount pictures, $scount sounds)\n";
-
-remove_tempdir();
 
 # ---------------------------------------------------------------------------
