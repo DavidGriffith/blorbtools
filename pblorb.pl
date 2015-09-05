@@ -99,7 +99,7 @@ sub begin_chunk
     $chunk_filename_array[$chunk_count] = $chunk_filename;
 
     $chunk_important_array[$chunk_count] = 0;
-    if (($id eq "Pict") || ($id eq "AIFF") || ($id eq "MOD ")
+    if (($id eq "PNG ") || ($id eq "JPEG") || ($id eq "AIFF") || ($id eq "MOD ")
         || ($id eq "OGGV") || ($id eq "ZCOD") || ($id eq "GLUL"))
     {   $chunk_important_array[$chunk_count] = 1;
         $important_count = $important_count + 1;        
@@ -171,13 +171,6 @@ sub palette_simple_chunk
 {   local $t = $_[0];
     begin_chunk("Plte", 0, "");
     one_byte($t);
-    end_chunk();
-}
-
-sub picture_chunk
-{   local $n = $_[0];
-    local $f = $_[1];
-    begin_chunk("Pict", $n, $f);
     end_chunk();
 }
 
@@ -347,8 +340,14 @@ sub interpret
         close(IDFILE);
         return;
     }
+
+    # Generate Pict chunks
     if ($command =~ /^\s*picture\s+([a-zA-Z_0-9]*)\s*"(.*)"\s*(.*)$/m)
-    {   $pnumt = $1; $pfile = $2; $rest = $3;
+    {   $pnumt = $1;
+	$pfile = $2;
+	$rest = $3;
+
+	$ext = ($pfile =~ m/([^.]+)$/)[0];
 
         if ($pnumt =~ /^\d+$/m)
         {   $pnum = $pnumt;
@@ -367,7 +366,13 @@ sub interpret
             }
         }
 
-        picture_chunk($pnum, $pfile);
+	if ($ext eq "jpg" or $ext eq "jpeg")
+	{   begin_chunk("JPEG", $pnum, $pfile);
+	    end_chunk();
+	} elsif ($ext eq "png") {	
+	    begin_chunk("PNG ", $pnum, $pfile);
+	    end_chunk();
+	}
 
         if ($rest =~ /^\s*$/m)
         {   return;
@@ -431,6 +436,7 @@ sub interpret
         }
     }
 
+    # Generate Snd chunks
     if ($command =~ /^\s*sound\s+([a-zA-Z_0-9]*)\s*"(.*)"\s*(.*)$/m)
     {   $snumt = $1;
         $fxfile = $2;
@@ -588,6 +594,9 @@ four_word($important_count);
 for ($x = 0; $x < $chunk_count; $x = $x + 1)
 {   if ($chunk_important_array[$x] == 1)
     {   $type = $chunk_id_array[$x];
+	if (($type eq "PNG ") || ($type eq "JPEG"))
+	{   $type = "Pict";
+	}
         if (($type eq "AIFF") || ($type eq "MOD ") || ($type eq "OGGV"))
         {   $type = "Snd ";
         }
@@ -608,9 +617,8 @@ for ($x = 0; $x <= $max_resource_num; $x = $x + 1)
 $pcount = 0; $scount = 0;
 for ($x = 0; $x < $chunk_count; $x = $x + 1)
 {   $type = $chunk_id_array[$x];
-    if ($type eq "Pict")
-    {   $type = "PNG ";
-        $picture_numbering[$chunk_number_array[$x]] = $x;
+    if (($type eq "PNG ") || ($type eq "JPEG"))
+    {   $picture_numbering[$chunk_number_array[$x]] = $x;
         $pcount = $pcount + 1;
     }
     if ($type eq "AIFF")
