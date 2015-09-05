@@ -25,6 +25,7 @@ my $soundcount;
 my $xmlcount = 0;
 my $resocount = 0;
 my $apalcount = 0;
+my $loopcount = 0;
 
 GetOptions('usage|?'	=> \$options{usage},
 	'h|help'	=> \$options{help},
@@ -203,6 +204,13 @@ for($pos = 12; $pos < $length; $pos += $size + ($size % 2) + 8) {
 		} else {
 			warn_resource($pos), next;
 		}
+		dumpchunk($output_filename, $pos, $chunkdata);
+	}
+
+	# Dumping Loop chunk
+	if ($options{sound} && $type eq "Loop") {
+		$output_filename = "loop_$loopcount" . ".bin";
+		$loopcount++;
 		dumpchunk($output_filename, $pos, $chunkdata);
 	}
 
