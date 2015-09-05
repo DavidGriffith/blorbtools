@@ -8,6 +8,7 @@
 use strict;
 use Getopt::Long;
 use Pod::Usage;
+use Encode qw(decode);
 
 require 5.6.0;
 
@@ -157,6 +158,11 @@ for($pos = 12; $pos < $length; $pos += $size + ($size % 2) + 8) {
 	# Frontispiece chunk
 	if ($type eq "Fspc") {
 		print "\tFrontispiece: " . unpack("n", substr($chunkdata, 2)) . "\n";
+	}
+
+	# SNam chunk
+	if ($type eq "SNam") {
+		print "\tStory name: " . decode("UTF16-BE", $chunkdata) . "\n";
 	}
 
 	# Resolution chunk
