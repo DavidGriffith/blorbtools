@@ -21,11 +21,16 @@ my $imagecount;
 my $execcount;
 my $soundcount;
 
+my $xmlcount = 0;
+my $resocount = 0;
+my $apalcount = 0;
+
 GetOptions('usage|?'	=> \$options{usage},
 	'h|help'	=> \$options{help},
 	'i|images'	=> \$options{images},
 	's|sound'	=> \$options{sound},
 	'e|exec'	=> \$options{exec},
+	'x|xml'		=> \$options{xml},
 	'a|all'		=> \$options{all}
 	);  
 
@@ -43,6 +48,7 @@ if ($options{all}) {
 	$options{images} = 1;
 	$options{sound} = 1;
 	$options{exec} = 1;
+	$options{xml} = 1;
 }
 
 
@@ -148,6 +154,35 @@ for($pos = 12; $pos < $length; $pos += $size + ($size % 2) + 8) {
 	    print "\tRelease number $relnum\n";
 	}
 
+	# Frontispiece chunk
+	if ($type eq "Fspc") {
+		print "\tFrontispiece: " . unpack("n", substr($chunkdata, 2)) . "\n";
+	}
+
+	# Resolution chunk
+	if ($options{images} && $type eq "Reso") {
+		$output_filename = "reso_$resocount";
+		$output_filename .= ".bin";
+		$resocount++;
+		dumpchunk($output_filename, $pos, $chunkdata);
+	}
+
+	# Adaptive Palette chunk
+	if ($options{images} && $type eq "APal") {
+		$output_filename = "apal_$apalcount";
+		$output_filename .= ".bin";
+		$apalcount++;
+		dumpchunk($output_filename, $pos, $chunkdata);		
+	}
+
+	# IFmd chunk
+	if ($options{xml} && ($type eq "IFmd")) {
+		$output_filename = "ifmd_$xmlcount";
+		$output_filename .= ".xml";
+		$xmlcount++;
+		dumpchunk($output_filename, $pos, $chunkdata);
+	}
+
 	# Dumping Exec chunks
 	if ($options{exec} && ($type eq "ZCOD" or $type eq "GLUL" or 
 			$type eq "ADRI")) {
@@ -194,7 +229,7 @@ for($pos = 12; $pos < $length; $pos += $size + ($size % 2) + 8) {
 	}
 
 	# Dumping Pict chunks
-	if ($options{images} && ($type eq "PNG " or $type eq "JPEG" or $type eq "GIF ")) {
+	if ($options{images} && ($type eq "PNG " or $type eq "JPEG" or $type eq "GIF " or $type eq "Rect")) {
 		$output_filename = "pict_";
 		$output_filename .= sprintf '%0*d', length($imagecount) , $images{$pos};
 		if ($type eq "PNG ") {
@@ -203,6 +238,10 @@ for($pos = 12; $pos < $length; $pos += $size + ($size % 2) + 8) {
 			$output_filename .= ".jpg";
 		} elsif ($type eq "GIF ") {
 			$output_filename .= ".gif";
+		} elsif ($type eq "Rect") {
+			my $width = unpack("n", substr($chunkdata, 2));
+			my $height = unpack("n", substr($chunkdata, 6));
+			$output_filename .= ".rect";
 		} else {
 			warn_resource($pos), next;
 		}
