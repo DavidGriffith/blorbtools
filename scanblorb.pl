@@ -109,8 +109,14 @@ for($pos = 12; $pos < $length; $pos += $size + ($size % 2) + 8) {
 	if($size % 2) { read(BLORB, $buffer, 1); }
 
 	# optional chunks
-	if ($type eq "(c) " or $type eq "AUTH" or $type eq "ANNO") {
-		print "$type: $chunkdata\n";
+	if ($type eq "(c) ") {
+		print "\tCopyright: $chunkdata\n";
+	}
+	if ($type eq "AUTH") {
+		print "\tAuthor: $chunkdata\n";
+	}
+	if ($type eq "ANNO") {
+		print "\tAnnotations: $chunkdata\n";
 	}
 
 	# zcode executable: look into its magic insides
