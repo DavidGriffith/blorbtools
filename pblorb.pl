@@ -103,7 +103,8 @@ sub begin_chunk
 	|| ($id eq "GFX ")
 	|| ($id eq "AIFF") || ($id eq "MOD ") || ($id eq "OGGV")
 	|| ($id eq "WAVE") || ($id eq "MIDI") || ($id eq "MP3 ")
-	|| ($id eq "ZCOD") || ($id eq "GLUL") || ($id eq "MAGS"))
+	|| ($id eq "ZCOD") || ($id eq "GLUL") || ($id eq "MAGS")
+	|| ($id eq "ADRI"))
     {   $chunk_important_array[$chunk_count] = 1;
         $important_count = $important_count + 1;        
     }
@@ -332,6 +333,8 @@ sub interpret
 	    begin_chunk("ZCOD", 0, $filename);
 	} elsif ($ext eq "ulx") {
 	    begin_chunk("GLUL", 0, $filename);
+	} elsif ($ext eq "taf") {
+	    begin_chunk("ADRI", 0, $filename);
 	} elsif ($ext eq "mag") {
 	    begin_chunk("MAGS", 0, $filename);
 	} else {
@@ -651,7 +654,8 @@ for ($x = 0; $x < $chunk_count; $x = $x + 1)
 		|| ($type eq "MP3 "))
         {   $type = "Snd ";
         }
-	if (($type eq "ZCOD") || ($type eq "GLUL") || ($type eq "MAGS"))
+	if (($type eq "ZCOD") || ($type eq "GLUL") || ($type eq "MAGS")
+		|| ($type eq "ADRI"))
 	{   $type = "Exec";
 	}
         print CHUNK $type;
