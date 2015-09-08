@@ -53,6 +53,7 @@ if ($options{all}) {
 	$options{xml} = 1;
 }
 
+sub array_diff(\@\@);
 
 my $version = "scanBlorb 3.0";
 
@@ -135,13 +136,13 @@ for($pos = 12; $pos < $length; $pos += $size + ($size % 2) + 8) {
 	# adrift executable: look into its magic insides
 	if ($type eq "ADRI") {
 		my @adrift_header = unpack("CCCCCCCCCCCC", $chunkdata);
-		if (@adrift_header ~~ @adrift_magic_380) {
+		if (!array_diff(@adrift_header, @adrift_magic_380)) {
 			$version = "3.80";
-		} elsif (@adrift_header ~~ @adrift_magic_390) {
+		} elsif (!array_diff(@adrift_header, @adrift_magic_390)) {
 			$version = "3.90";
-		} elsif (@adrift_header ~~ @adrift_magic_400) {
+		} elsif (!array_diff(@adrift_header, @adrift_magic_400)) {
 			$version = "4.00";
-		} elsif (@adrift_header ~~ @adrift_magic_500) {
+		} elsif (!array_diff(@adrift_header, @adrift_magic_500)) {
 			$version = "5.0";
 		} else {
 			$version = "unknown";
@@ -299,6 +300,10 @@ for($pos = 12; $pos < $length; $pos += $size + ($size % 2) + 8) {
 
 close(BLORB);
 
+sub array_diff(\@\@) {
+	my %e = map { $_ => undef } @{$_[1]};
+	return @{[ ( grep { (exists $e{$_}) ? ( delete $e{$_} ) : ( 1 ) } @{ $_[0] } ), keys %e ] };
+}
 
 sub warn_resource {
 	my ($pos, @junk) = @_;
@@ -356,7 +361,7 @@ Running the script without any options on a Blorb file will result in a
 list of chunks found and some information about them.  Chunks that 
 started off as standalone files may be extracted to the currect 
 directory by using the appropriate option.  The -a option will cause all 
-available embedded files to be extracted.
+embedded files to be extracted.
 
 Version 3.0
 
