@@ -7,7 +7,7 @@
 # ---------------------------------------------------------------------------
 
 use File::Temp qw/ tempfile tempdir /;
-
+use Encode qw(encode);
 
 $file_sep        = '/';      # Character used to separate directories in
                              # pathnames (on most systems this will be /)
@@ -184,6 +184,14 @@ sub frontispiece_chunk
     end_chunk();
 }
 
+sub storyname_chunk
+{   local $t = $_[0];
+    local $foo = encode("UTF16-BE", $t);
+    begin_chunk("SNam", 0, "");
+    print CHUNK $foo;
+    end_chunk();
+}
+
 # ---------------------------------------------------------------------------
 
 # The mod file formats listed here are the ones supported by libmodplug,
@@ -311,6 +319,10 @@ sub interpret
     }
     if ($command =~ /^\s*cover\s+(\d*)\s*$/m)
     {	frontispiece_chunk($1);
+	return;
+    }
+    if ($command =~ /^\s*storyname\s+"(.*)"\s*$/m)
+    {	storyname_chunk($1);
 	return;
     }
     if ($command =~ /^\s*storyfile\s+"(.*)"\s+include\s*$/m)
