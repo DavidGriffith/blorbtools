@@ -149,6 +149,11 @@ for($pos = 12; $pos < $length; $pos += $size + ($size % 2) + 8) {
 		print "\tADRIFT Generator version $version\n";
 	}
 
+	# magnetic scrolls executable
+	if ($type eq "MAGS") {
+		print "\tMagnetic Scrolls\n";
+	}
+
 	# game identifier chunk: probably only if no executable chunk
 	if ($type eq "IFhd") {   
 	    my $release = unpack("n", substr($chunkdata,0,3));
@@ -198,7 +203,7 @@ for($pos = 12; $pos < $length; $pos += $size + ($size % 2) + 8) {
 
 	# Dumping Exec chunks
 	if ($options{exec} && ($type eq "ZCOD" or $type eq "GLUL" or 
-			$type eq "ADRI")) {
+			$type eq "MAGS")) {
 		$output_filename = "exec_";
 		$output_filename .= sprintf '%0*d', length($execcount) , $execs{$pos};
 		if ($type eq "ZCOD") {
@@ -207,6 +212,8 @@ for($pos = 12; $pos < $length; $pos += $size + ($size % 2) + 8) {
 			$output_filename .= ".ulx";
 		} elsif ($type eq "ADRI") {
 			$output_filename .= ".taf";
+		} elsif ($type eq "MAGS") {
+			$output_filename .= ".mag";
 		} else {
 			warn_resource($pos), next;
 		}
@@ -249,7 +256,7 @@ for($pos = 12; $pos < $length; $pos += $size + ($size % 2) + 8) {
 	}
 
 	# Dumping Pict chunks
-	if ($options{images} && ($type eq "PNG " or $type eq "JPEG" or $type eq "GIF " or $type eq "Rect")) {
+	if ($options{images} && ($type eq "PNG " or $type eq "JPEG" or $type eq "GIF " or $type eq "Rect" or $type eq "GFX ")) {
 		$output_filename = "pict_";
 		$output_filename .= sprintf '%0*d', length($imagecount) , $images{$pos};
 		if ($type eq "PNG ") {
@@ -258,6 +265,8 @@ for($pos = 12; $pos < $length; $pos += $size + ($size % 2) + 8) {
 			$output_filename .= ".jpg";
 		} elsif ($type eq "GIF ") {
 			$output_filename .= ".gif";
+		} elsif ($type eq "GFX ") {
+			$output_filename .= ".gfx";
 		} elsif ($type eq "Rect") {
 			my $width = unpack("n", substr($chunkdata, 2));
 			my $height = unpack("n", substr($chunkdata, 6));

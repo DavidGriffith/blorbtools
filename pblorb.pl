@@ -99,8 +99,11 @@ sub begin_chunk
     $chunk_filename_array[$chunk_count] = $chunk_filename;
 
     $chunk_important_array[$chunk_count] = 0;
-    if (($id eq "PNG ") || ($id eq "JPEG") || ($id eq "AIFF") || ($id eq "MOD ")
-        || ($id eq "OGGV") || ($id eq "ZCOD") || ($id eq "GLUL"))
+    if (($id eq "PNG ") || ($id eq "JPEG") || ($id eq "GIF ")
+	|| ($id eq "GFX ")
+	|| ($id eq "AIFF") || ($id eq "MOD ") || ($id eq "OGGV")
+	|| ($id eq "WAVE") || ($id eq "MIDI") || ($id eq "MP3 ")
+	|| ($id eq "ZCOD") || ($id eq "GLUL") || ($id eq "MAGS"))
     {   $chunk_important_array[$chunk_count] = 1;
         $important_count = $important_count + 1;        
     }
@@ -171,6 +174,13 @@ sub palette_simple_chunk
 {   local $t = $_[0];
     begin_chunk("Plte", 0, "");
     one_byte($t);
+    end_chunk();
+}
+
+sub frontispiece_chunk
+{   local $t = $_[0];
+    begin_chunk("Fspc", 0, "");
+    four_word($t);
     end_chunk();
 }
 
@@ -299,6 +309,10 @@ sub interpret
         end_chunk();
         return;
     }
+    if ($command =~ /^\s*cover\s+(\d*)\s*$/m)
+    {	frontispiece_chunk($1);
+	return;
+    }
     if ($command =~ /^\s*storyfile\s+"(.*)"\s+include\s*$/m)
     {   my $filename = $1;
 	my $ext = ($filename =~ m/([^.]+)$/)[0];
@@ -306,6 +320,8 @@ sub interpret
 	    begin_chunk("ZCOD", 0, $filename);
 	} elsif ($ext eq "ulx") {
 	    begin_chunk("GLUL", 0, $filename);
+	} elsif ($ext eq "mag") {
+	    begin_chunk("MAGS", 0, $filename);
 	} else {
 	    fatal("unknown executable extension $exec");
 	}
@@ -371,6 +387,12 @@ sub interpret
 	    end_chunk();
 	} elsif ($ext eq "png") {	
 	    begin_chunk("PNG ", $pnum, $pfile);
+	    end_chunk();
+	} elsif ($ext eq "gif") {
+	    begin_chunk("GIF ", $pnum, $pfile);
+	    end_chunk();
+	} elsif ($ext eq "gfx") {
+	    begin_chunk("GFX ", $pnum, $pfile);
 	    end_chunk();
 	}
 
@@ -475,6 +497,21 @@ sub interpret
 
 	if ($ext eq "aiff")
 	{   begin_chunk("AIFF", $snum, $fxfile);
+	    end_chunk();
+	}
+
+	if ($ext eq "wav")
+	{   begin_chunk("WAVE", $snum, $fxfile);
+	    end_chunk();
+	}
+
+	if ($ext eq "mp3")
+	{   begin_chunk("MP3 ", $snum, $fxfile);
+	    end_chunk();
+	}
+
+	if ($ext eq "mid")
+	{   begin_chunk("MIDI", $snum, $fxfile);
 	    end_chunk();
 	}
 
@@ -594,13 +631,15 @@ four_word($important_count);
 for ($x = 0; $x < $chunk_count; $x = $x + 1)
 {   if ($chunk_important_array[$x] == 1)
     {   $type = $chunk_id_array[$x];
-	if (($type eq "PNG ") || ($type eq "JPEG"))
+	if (($type eq "PNG ") || ($type eq "JPEG") || ($type eq "GIF ")
+		|| ($type eq "GFX "))
 	{   $type = "Pict";
 	}
-        if (($type eq "AIFF") || ($type eq "MOD ") || ($type eq "OGGV"))
+        if (($type eq "AIFF") || ($type eq "MOD ") || ($type eq "OGGV")
+		|| ($type eq "MP3 "))
         {   $type = "Snd ";
         }
-	if (($type eq "ZCOD") || ($type eq "GLUL"))
+	if (($type eq "ZCOD") || ($type eq "GLUL") || ($type eq "MAGS"))
 	{   $type = "Exec";
 	}
         print CHUNK $type;
@@ -617,21 +656,15 @@ for ($x = 0; $x <= $max_resource_num; $x = $x + 1)
 $pcount = 0; $scount = 0;
 for ($x = 0; $x < $chunk_count; $x = $x + 1)
 {   $type = $chunk_id_array[$x];
-    if (($type eq "PNG ") || ($type eq "JPEG"))
+    if (($type eq "PNG ") || ($type eq "JPEG") || ($type eq "GIF ")
+		|| ($type eq "GFX "))
     {   $picture_numbering[$chunk_number_array[$x]] = $x;
         $pcount = $pcount + 1;
     }
-    if ($type eq "AIFF")
+    if (($type eq "AIFF") || ($type eq "MOD ") || ($type eq "OGGV")
+		|| ($type eq "WAVE") || ($type eq "MP3 "))
     {   $sound_numbering[$chunk_number_array[$x]] = $x;
-        $scount = $scount + 1;
-    }
-    if ($type eq "MOD ")
-    {   $sound_numbering[$chunk_number_array[$x]] = $x;
-        $scount = $scount + 1;
-    }
-    if ($type eq "OGGV")
-    {   $sound_numbering[$chunk_number_array[$x]] = $x;
-        $scount = $scount + 1;
+        $scount++;
     }
     if ($type ne "AIFF") {
         print CHUNK $type;
