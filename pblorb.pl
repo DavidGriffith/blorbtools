@@ -6,62 +6,85 @@
 # Modifications applied by David Griffith in 2012, 2013
 # ---------------------------------------------------------------------------
 
-use File::Temp qw/ tempfile tempdir /;
+use strict;
+use File::Temp qw(tempfile tempdir);
 use Encode qw(encode);
+use Getopt::Long;
 
-$file_sep        = '/';      # Character used to separate directories in
-                             # pathnames (on most systems this will be /)
+my $file_sep	= '/';		# Character used to separate directories in
+				# pathnames (on most systems this will be /)
 
-$blurb_filename  = 'input.blurb';
-$output_filename = '>output.blb';
+my $blurb_filename  = 'input.blurb';
+my $output_filename = '>output.blb';
+my $version = "perlBlorb 1.04";
 
-$version = "perlBlorb 1.04";
+my ($sec,$min,$hour,$mday,$month,$year,$wday,$yday,$isdst) = localtime(time);
 
-($sec,$min,$hour,$mday,$month,$year,$wday,$yday,$isdst) = localtime(time);
-
-$blorbdate = sprintf("%02d%02d%02d at %02d:%02d.%02d",
+my $blorbdate = sprintf("%02d%02d%02d at %02d:%02d.%02d",
                  $year, $month + 1, $mday, $hour, $min, $sec);
 
-$temp_dir = tempdir(CLEANUP => 1);
+my $temp_dir = tempdir(CLEANUP => 1);
 
 print STDOUT "! $version [executing on $blorbdate]\n";
 print STDOUT "! The blorb spell (safely protect a small object ";
 print STDOUT "as though in a strong box).\n";
 
-$blurb_line = 0;
+my $blurb_line = 0;
 
-$chunk_count = 0;
-$important_count = 0;
-$total_size = 0;
-$max_resource_num = 0;
-$scalables = 0;
-$repeaters = 0;
-$next_pnum = 1;
-$next_snum = 3;
+my $chunk_count = 0;
+my $chunk_opened = 0;
+my $important_count = 0;
+my $total_size = 0;
+my $max_resource_num = 0;
+my $scalables = 0;
+my $repeaters = 0;
+my $next_pnum = 1;
+my $next_snum = 3;
 
-$r_stdx = 600; $r_stdy = 400;
-$r_minx = 0; $r_maxx = 0;
-$r_miny = 0; $r_maxy = 0;
-$resolution_on = 0;
+my $r_stdx = 600; my $r_stdy = 400;
+my $r_minx = 0; my $r_maxx = 0;
+my $r_miny = 0; my $r_maxy = 0;
+my $resolution_on = 0;
+
+my @p_picno;
+my @p_stdp;
+my @p_stdq;
+my @p_minp;
+my @p_maxp;
+my @p_minq;
+my @p_maxq;
+
+my $chunk_filename;
+my @chunk_filename_array;
+my @chunk_important_array;
+my @chunk_id_array;
+my @chunk_number_array;
+my @chunk_offset_array;
+my @chunk_size_array;
+
+my @looped_fx;
+my @looped_num;
+my @picture_numbering;
+my @sound_numbering;
 
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
 
 sub error
-{   local $m = $_[0];
+{   my $m = $_[0];
     print STDERR "$blurb_filename, line $blurb_line: Error: $m\n";
 }
 
 sub fatal
-{   local $m = $_[0];
+{   my $m = $_[0];
     die "$blurb_filename, line $blurb_line: Fatal error: $m\n";
 }
 
 # ---------------------------------------------------------------------------
 
 sub four_word
-{   local $n = $_[0];
+{   my $n = $_[0];
     print CHUNK sprintf("%c%c%c%c", ($n / 0x1000000),
                                     ($n / 0x10000)%0x100,
                                     ($n / 0x100)%0x100,
@@ -69,20 +92,20 @@ sub four_word
 }
 
 sub two_word
-{   local $n = $_[0];
+{   my $n = $_[0];
     print CHUNK sprintf("%c%c", ($n / 0x100),
                                   ($n)%0x100);
 }
 
 sub one_byte
-{   local $n = $_[0];
+{   my $n = $_[0];
     print CHUNK sprintf("%c", $n);
 }
 
 sub begin_chunk
-{   local $id = $_[0];
-    local $cnum = $_[1];
-    local $chunk_filename = $_[2];
+{   my $id = $_[0];
+    my $cnum = $_[1];
+    my $chunk_filename = $_[2];
     $chunk_opened = 0;
 
     if ($cnum > $max_resource_num) { $max_resource_num = $cnum; }
@@ -115,9 +138,9 @@ sub begin_chunk
 }
 
 sub end_chunk
-{   local $size, $blen, $buffer;
+{   my ($size, $blen, $buffer);
 
-    if (chunk_opened == 1)
+    if ($chunk_opened == 1)
     {   close(CHUNK);
     }
 
@@ -151,43 +174,43 @@ sub end_chunk
 }
 
 sub author_chunk
-{   local $t = $_[0];
+{   my $t = $_[0];
     begin_chunk("AUTH", 0, "");
     print CHUNK $t;
     end_chunk();
 }
 
 sub copyright_chunk
-{   local $t = $_[0];
+{   my $t = $_[0];
     begin_chunk("(c) ", 0, "");
     print CHUNK $t;
     end_chunk();
 }
 
 sub release_chunk
-{   local $t = $_[0];
+{   my $t = $_[0];
     begin_chunk("RelN", 0, "");
     two_word($t);
     end_chunk();
 }
 
 sub palette_simple_chunk
-{   local $t = $_[0];
+{   my $t = $_[0];
     begin_chunk("Plte", 0, "");
     one_byte($t);
     end_chunk();
 }
 
 sub frontispiece_chunk
-{   local $t = $_[0];
+{   my $t = $_[0];
     begin_chunk("Fspc", 0, "");
     four_word($t);
     end_chunk();
 }
 
 sub storyname_chunk
-{   local $t = $_[0];
-    local $foo = encode("UTF16-BE", $t);
+{   my $t = $_[0];
+    my $foo = encode("UTF16-BE", $t);
     begin_chunk("SNam", 0, "");
     print CHUNK $foo;
     end_chunk();
@@ -200,7 +223,7 @@ sub storyname_chunk
 # 
 sub ismod
 {
-    local $ext = $_[0];
+    my $ext = $_[0];
 
     if ($ext eq "mod") { return 1; }
     if ($ext eq "xm")  { return 1; }
@@ -235,10 +258,10 @@ sub identify
 {   print STDOUT "Constant $_[0] = $_[1];\n";
 }
 
-
-
 sub interpret
-{   local $command = $_[0];
+{   my $command = $_[0];
+    my $rest;
+
     if ($command =~ /^\s*\!/)
     {   # This is a comment line
         return;
@@ -338,14 +361,15 @@ sub interpret
 	} elsif ($ext eq "mag") {
 	    begin_chunk("MAGS", 0, $filename);
 	} else {
-	    fatal("unknown executable extension $exec");
+	    fatal("unknown executable extension $ext");
 	}
 	end_chunk();
         return;
     }
     # Do we need to generate an IFhd chunk?
     if ($command =~ /^\s*storyfile\s+"(.*)"/)
-    {   open(IDFILE, $1) or fatal("unable to open story file $1");
+    {	my $buffer;
+ 	open(IDFILE, $1) or fatal("unable to open story file $1");
         binmode(IDFILE);
         begin_chunk("IFhd", 0, "");
         $version = unpack("C", getc(IDFILE));
@@ -374,11 +398,12 @@ sub interpret
 
     # Generate Pict chunks
     if ($command =~ /^\s*picture\s+([a-zA-Z_0-9]*)\s*"(.*)"\s*(.*)$/m)
-    {   $pnumt = $1;
-	$pfile = $2;
-	$rest = $3;
+    {   my $pnumt = $1;
+	my $pfile = $2;
+	my $rest = $3;
+	my $pnum;
 
-	$ext = ($pfile =~ m/([^.]+)$/)[0];
+	my $ext = ($pfile =~ m/([^.]+)$/)[0];
 
         if ($pnumt =~ /^\d+$/m)
         {   $pnum = $pnumt;
@@ -475,11 +500,12 @@ sub interpret
 
     # Generate Snd chunks
     if ($command =~ /^\s*sound\s+([a-zA-Z_0-9]*)\s*"(.*)"\s*(.*)$/m)
-    {   $snumt = $1;
-        $fxfile = $2;
-        $repeats = $3;
+    {   my $snum;
+	my $snumt = $1;
+        my $fxfile = $2;
+        my $repeats = $3;
 
-	$ext = ($fxfile =~ m/([^.]+)$/)[0];
+	my $ext = ($fxfile =~ m/([^.]+)$/)[0];
 
         if ($snumt =~ /^\d+$/m)
         {   $snum = $snumt;
@@ -557,9 +583,12 @@ sub interpret
     }
 
     error("no such blurb command: $1");
-}
+} # interpret
 
 # ---------------------------------------------------------------------------
+
+my $c;
+my $x;
 
 if ($ARGV[0]) {
 	$blurb_filename = $ARGV[0];
@@ -625,8 +654,9 @@ if ($repeaters > 0)
 
 # Calculate the IFF file size
 
-$past_idx_offset = 12 + 12 + 12*$important_count;
-$iff_size = $past_idx_offset + $total_size;
+my $past_idx_offset = 12 + 12 + 12*$important_count;
+my $iff_size = $past_idx_offset + $total_size;
+my $type;
 
 # Now construct the IFF file from the chunks
 
@@ -669,7 +699,10 @@ for ($x = 0; $x <= $max_resource_num; $x = $x + 1)
     $sound_numbering[$x] = -1;
 }
 
-$pcount = 0; $scount = 0;
+my $pcount = 0;
+my $scount = 0;
+my $portion;
+
 for ($x = 0; $x < $chunk_count; $x = $x + 1)
 {   $type = $chunk_id_array[$x];
     if (($type eq "PNG ") || ($type eq "JPEG") || ($type eq "GIF ")
