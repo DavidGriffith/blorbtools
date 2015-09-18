@@ -17,20 +17,9 @@ my $file_sep	= '/';		# Character used to separate directories in
 my $blurb_filename  = 'input.blurb';
 my $output_filename = '>output.blb';
 my $version = "perlBlorb 1.04";
-
-my ($sec,$min,$hour,$mday,$month,$year,$wday,$yday,$isdst) = localtime(time);
-
-my $blorbdate = sprintf("%02d%02d%02d at %02d:%02d.%02d",
-                 $year, $month + 1, $mday, $hour, $min, $sec);
-
 my $temp_dir = tempdir(CLEANUP => 1);
 
-print STDOUT "! $version [executing on $blorbdate]\n";
-print STDOUT "! The blorb spell (safely protect a small object ";
-print STDOUT "as though in a strong box).\n";
-
 my $blurb_line = 0;
-
 my $chunk_count = 0;
 my $chunk_opened = 0;
 my $important_count = 0;
@@ -261,6 +250,8 @@ sub identify
 sub interpret
 {   my $command = $_[0];
     my $rest;
+
+    $blurb_line++;
 
     if ($command =~ /^\s*\!/)
     {   # This is a comment line
@@ -583,12 +574,28 @@ sub interpret
     }
 
     error("no such blurb command: $1");
-} # interpret
+} # sub interpret
 
 # ---------------------------------------------------------------------------
 
+# These variables only used in the main routine
 my $c;
 my $x;
+my $type;
+my $pcount = 0;
+my $scount = 0;
+my $portion;
+my $past_idx_offset;
+my $iff_size;
+
+my ($sec,$min,$hour,$mday,$month,$year,$wday,$yday,$isdst) = localtime(time);
+
+my $blorbdate = sprintf("%02d%02d%02d at %02d:%02d.%02d",
+                 $year, $month + 1, $mday, $hour, $min, $sec);
+
+print STDOUT "! $version [executing on $blorbdate]\n";
+print STDOUT "! The blorb spell (safely protect a small object ";
+print STDOUT "as though in a strong box).\n";
 
 if ($ARGV[0]) {
 	$blurb_filename = $ARGV[0];
@@ -598,15 +605,13 @@ if ($ARGV[1]) {
 	$output_filename = "> $ARGV[1]";
 }
 
-
 author_chunk("$version on $blorbdate");
-
 
 open (BLURB, $blurb_filename)
     or fatal("can't open blurb file $blurb_filename");
 
 while ($c = <BLURB>)
-{   $blurb_line = $blurb_line + 1;
+{
     interpret($c);
 }
 
@@ -653,10 +658,8 @@ if ($repeaters > 0)
 # ---------------------------------------------------------------------------
 
 # Calculate the IFF file size
-
-my $past_idx_offset = 12 + 12 + 12*$important_count;
-my $iff_size = $past_idx_offset + $total_size;
-my $type;
+$past_idx_offset = 12 + 12 + 12 * $important_count;
+$iff_size = $past_idx_offset + $total_size;
 
 # Now construct the IFF file from the chunks
 
@@ -698,10 +701,6 @@ for ($x = 0; $x <= $max_resource_num; $x = $x + 1)
 {   $picture_numbering[$x] = -1;
     $sound_numbering[$x] = -1;
 }
-
-my $pcount = 0;
-my $scount = 0;
-my $portion;
 
 for ($x = 0; $x < $chunk_count; $x = $x + 1)
 {   $type = $chunk_id_array[$x];
