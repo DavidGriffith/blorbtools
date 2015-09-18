@@ -10,6 +10,7 @@ use strict;
 use File::Temp qw(tempfile tempdir);
 use Encode qw(encode);
 use Getopt::Long;
+use Pod::Usage;
 
 my $file_sep	= '/';		# Character used to separate directories in
 				# pathnames (on most systems this will be /)
@@ -29,6 +30,8 @@ my $scalables = 0;
 my $repeaters = 0;
 my $next_pnum = 1;
 my $next_snum = 3;
+
+my $cover_seen = 0;
 
 my $r_stdx = 600; my $r_stdy = 400;
 my $r_minx = 0; my $r_maxx = 0;
@@ -55,6 +58,13 @@ my @looped_fx;
 my @looped_num;
 my @picture_numbering;
 my @sound_numbering;
+
+my %options;
+GetOptions('usage|?'	=> \$options{usage},
+	'h|help'	=> \$options{help},
+	'n|nobuild'	=> \$options{nobuild}
+	);
+
 
 # ---------------------------------------------------------------------------
 
@@ -195,6 +205,7 @@ sub frontispiece_chunk
     begin_chunk("Fspc", 0, "");
     four_word($t);
     end_chunk();
+    identify("PICTURE_cover", $t);
 }
 
 sub storyname_chunk
@@ -332,10 +343,6 @@ sub interpret
         end_chunk();
         return;
     }
-    if ($command =~ /^\s*cover\s+(\d*)\s*$/m)
-    {	frontispiece_chunk($1);
-	return;
-    }
     if ($command =~ /^\s*storyname\s+"(.*)"\s*$/m)
     {	storyname_chunk($1);
 	return;
@@ -388,7 +395,8 @@ sub interpret
     }
 
     # Generate Pict chunks
-    if ($command =~ /^\s*picture\s+([a-zA-Z_0-9]*)\s*"(.*)"\s*(.*)$/m)
+    if ($command =~ /^\s*picture\s+([a-zA-Z_0-9]*)\s*"(.*)"\s*(.*)$/m ||
+	$command =~ /^\s*cover\s+"(.*)"\s*$/m)
     {   my $pnumt = $1;
 	my $pfile = $2;
 	my $rest = $3;
@@ -405,12 +413,25 @@ sub interpret
             {   $next_pnum = $pnum + 1;
             }
         }
-        else
+        elsif ($command =~ /^\s*cover\s+"(.*)"\s*$/m)
+	{
+	    if ($cover_seen) { fatal("Only one 'cover' command allowed");}
+	    $cover_seen = 1;
+	    $pnum = $next_pnum;
+	    $next_pnum++;
+	    $pfile = $pnumt;
+	    $ext = ($pfile =~ m/([^.]+)$/)[0];
+	    frontispiece_chunk($pnum);
+	}
+	else
         {   $pnum = $next_pnum;
             $next_pnum = $next_pnum + 1;
             if ($pnumt ne "")
             {   identify("PICTURE_$pnumt", $pnum);
             }
+	    else
+	    {   fatal("picture resource is missing an ID");
+	    }
         }
 
 	if ($ext eq "jpg" or $ext eq "jpeg")
@@ -425,6 +446,8 @@ sub interpret
 	} elsif ($ext eq "gfx") {
 	    begin_chunk("GFX ", $pnum, $pfile);
 	    end_chunk();
+	} else {
+	    fatal("Unknown picture type");
 	}
 
         if ($rest =~ /^\s*$/m)
@@ -597,6 +620,10 @@ print STDOUT "! $version [executing on $blorbdate]\n";
 print STDOUT "! The blorb spell (safely protect a small object ";
 print STDOUT "as though in a strong box).\n";
 
+
+pod2usage(1) if $options{usage};
+pod2usage(-verbose => 3) if $options{help};
+
 if ($ARGV[0]) {
 	$blurb_filename = $ARGV[0];
 }
@@ -742,3 +769,140 @@ print STDOUT "! Completed: size $iff_size bytes ";
 print STDOUT "($pcount pictures, $scount sounds)\n";
 
 # ---------------------------------------------------------------------------
+
+__END__
+
+=head1 NAME
+
+pblorb.pl - Generate a Blorb file according to a supplied Blurb file
+
+=head1 SYNOPSIS
+
+pblorb.pl - [-n] <story.blurb> [<output.blorb>]
+
+Use -h or --help for verbose help.
+
+=head1 DESCRIPTION
+
+The Blorb spell safely protects a small object as though in a strong box.
+
+This script generates a Blorb file according to the supplied Blurb file.  
+
+=head2 Option flags
+
+  -?		Print simple usage message.
+  -h --help	Print verbose help message.
+  -n --nobuild	Don't build a Blorb.  Just parse the Blurb file.
+
+=head1 APPLICATION
+
+A Blorb file is an IFF (Interchange File Format) file that wraps up 
+executables, sound, graphics, and other resources into a single file for 
+use with interactive fiction game interpreters.  The format was 
+originally conceived for use with Z-machine and Glulx interpreters, but 
+nothing particularly limits it use to these two.  This script provides 
+support for building Blorb files for use with ADRIFT and Magnetic 
+Scrolls interpreters.
+
+A Blurb file is a text file that describes the contents of the Blorb 
+file.  This file is given to pblorb.pl at the command line.  This file 
+is then interpreted and a Blorb is created containing the files 
+specified along with any non-file information given.
+
+=head1 GRAMMAR
+
+This section is intended as a quick reference on Blurb grammar.  A full 
+description can be found at Andrew Plotkin's website (see below).  Blank 
+lines are ignored.  The comment character is '!'.  Everything past that 
+character is ignored.  Each command describes a chunk to be added to the 
+Blorb file.
+
+author		<string>
+Adds this author name to the file.
+
+copyright	<string>
+Adds this copyright declaration to the blorb file.  Normally this is 
+short text like "(c) J.Mango Pineapple 2007" rather than a lengthy legal 
+discorse.
+
+release		<number>
+Give this release number to the blorb file
+
+auxiliary	<filename> <string>
+Tells the interpreter that an auxiliary file - for instance, a PDF 
+manual - is associated with the release but will not be embedded 
+directly into the blorb file.
+
+ifiction	<filename> include
+Include an XML file containing a valid iFiction record for this work.
+
+storyfile	<filename>
+storyfile	<filename> include
+Specifies the filename of the story file.  If the "include" option is 
+used, the story file will be embedded in the blorb file.
+
+palette		16 bit
+palette		32 bit
+palette		{<colour-1> <colour-N>}
+Signal the interpreter which color scheme is in use.  The first two 
+options suggest that the pictures are best displayed using at least 
+16-bit or 32-bit colours.  The third specifies colours used in the 
+pictures in terms of red/green/blue levels, and the braces allow the 
+sequence of colours to continue over manu lines.  At least one and at 
+most 256 colours may be defined in this way.  This is only a "clue" to 
+the interpreter.  Only meaningful for Z-machine.
+
+resolution	<dim>
+resolution	<dim> min <dim>
+resolution	<dim> max <dim>
+resolution	<dim> min <dim> max <dim>
+Signal the interpreter the preferred screen size in real pixels.  The 
+minimum and maximum values are the extremes at which the designer thinks 
+the game will be playable.  These are optional with default values being 
+0 x 0 and infinity x infinity.  Only meaningful for Z-machine
+
+sound <id> <filename>
+sound <id> <filename> repeat <number>
+sound <id> <filename> repeat forever
+Tell pblorb.pl to take a sound sample from the named file and make it 
+the sound effect with the given ID.  The ID may be an integer (starting 
+with 3) or a string.  If a string is provided, pblorb.pl will emit some 
+Inform6 constant declarations associating that string with an 
+automatically assigned number.  This allows the author to refer to 
+"SOUND_buzzer" instead of "4".  The repeat information is only 
+meaningful for Z-machine V3.
+
+picture <id> <filename>
+picture <id> <filename> scale <ratio>
+picture <id> <filename> scale min <ratio>
+picture <id> <filename> scale <ratio> min <ratio>
+Tell pblorb.pl to take an image from the named file and make it the 
+picture with the given ID.  The ID rules are the same as with sounds 
+except pictures may start at 1.  Scales are expressed as fractions, so 
+"scale 3/1" means "Always display three times its normal size.".  "scale 
+num 1/10 max 8/1" means "Display this anywhere between one tenth normal 
+size and eight times normal size, but if possible it ought to be just 
+its normal size.".
+
+cover <filename>
+Specifies that this is the cover art; it must also be declared with a 
+picture command in the usual way, and must have picture ID 1
+
+
+=head1 NOTES
+
+The Blorb format was created by Andrew Plotkin in 1998.  This script 
+conforms to version 2.0.4 of the Blorb Specification.  See 
+http://www.eblong.com/zarf/blorb/
+
+For more information on IFF (Interchange File Format), see 
+https://en.wikipedia.org/wiki/Interchange_File_Format
+
+For information on the Treaty of Babel, see http://babel.ifarchive.org/
+
+=head1 AUTHORS
+
+(c) Graham Nelson  1998 (original script to v1.03)
+(c) David Griffith 2015 (updates from 2.0 on)
+
+=cut
