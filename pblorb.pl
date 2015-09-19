@@ -945,9 +945,7 @@ For more information on IFF (Interchange File Format), see
 L<https://en.wikipedia.org/wiki/Interchange_File_Format>
 
 =head1 AUTHORS
-
-(c) Graham Nelson  1998 (original script to v1.03)
-
-(c) David Griffith 2015
+    (c) Graham Nelson  1998 (original script to v1.03)
+    (c) David Griffith 2015
 
 =cut

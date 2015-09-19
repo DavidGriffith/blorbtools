@@ -300,6 +300,8 @@ for($pos = 12; $pos < $length; $pos += $size + ($size % 2) + 8) {
 
 close(BLORB);
 
+# ---------------------------------------------------------------------------
+
 sub array_diff(\@\@) {
 	my %e = map { $_ => undef } @{$_[1]};
 	return @{[ ( grep { (exists $e{$_}) ? ( delete $e{$_} ) : ( 1 ) } @{ $_[0] } ), keys %e ] };
@@ -323,6 +325,8 @@ sub dumpchunk {
 		or warn "Failed to close handle for $filename: $!\n", next;
 }
 
+# ---------------------------------------------------------------------------
+
 __END__
 
 
@@ -332,7 +336,7 @@ scanblorb.pl - Examine a Blorb resource file and optionally dump its contents
 
 =head1 SYNOPSIS
 
-scanblorb.pl [options...] <blorbfile>
+B<scanblorb.pl> [options...] <blorbfile>
 
 Use -h or --help for verbose help.
 
@@ -343,21 +347,21 @@ and reports on its contents.  The contents of the Blorb file can also be
 extracted to individual files.
 
 =head2 Option flags
-
-  -?		Print simple usage message.
-  -h --help	Print verbose help message.
-  -a --all	Extract all embedded file chunks.
-  -e --exec	Extract only the executable chunk.
-  -i --images	Extract only image chunks.
-  -s --sound	Extract only sound chunks.
+	B<-?>		Print simple usage message.
+	B<-h --help>	Print verbose help message.
+	B<-a --all>	Extract all embedded file chunks.
+	B<-e --exec>	Extract only the executable chunk.
+	B<-i --images>	Extract only image chunks.
+	B<-s --sound>	Extract only sound chunks.
+	B< >
 
 =head1 APPLICATION
 
 This script is intended to assist in dissecting and reverse-engineering
-Blorb files.  Currently chunks having to do with Zcode, Glulx, and 
-Adrift executable formats are recognized.
+blorb files.  Currently chunks having to do with Zcode, Glulx, 
+ADRIFT, and Magnetic Scrolls executable formats are recognized.
 
-Running the script without any options on a Blorb file will result in a 
+Running the script without any options on a blorb file will result in a 
 list of chunks found and some information about them.  Chunks that 
 started off as standalone files may be extracted to the currect 
 directory by using the appropriate option.  The -a option will cause all 
@@ -369,11 +373,11 @@ Version 3.0
 
 The Blorb format was created by Andrew Plotkin in 1998.  This script 
 conforms to version 2.0.4 of the Blorb Specification.  See 
-http://www.eblong.com/zarf/blorb/
+L<http://www.eblong.com/zarf/blorb/>
 
 =head1 AUTHORS
-(c) Graham Nelson  1998 (original script up to 1.03)
-(c) Richard Poole  2004 (modifications up to 2.0)
-(c) David Griffith 2015 (modifications from 3.0 on)
-	Added support for extracting chunks.
+    (c) Graham Nelson  1998 (original script up to 1.03)
+    (c) Richard Poole  2004 (version 2.0)
+    (c) David Griffith 2015 (version 3.0 and later)
+
 =cut
