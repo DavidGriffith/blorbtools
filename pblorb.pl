@@ -521,6 +521,10 @@ sub interpret
 
 	my $ext = ($fxfile =~ m/([^.]+)$/)[0];
 
+	if ($snumt eq "")
+	{   fatal("sound resource is missing an ID");
+	}
+
         if ($snumt =~ /^\d+$/m)
         {   $snum = $snumt;
             if ($snum < $next_snum)
