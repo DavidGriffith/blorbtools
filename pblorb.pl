@@ -16,7 +16,7 @@ my $file_sep	= '/';		# Character used to separate directories in
 				# pathnames (on most systems this will be /)
 
 my $blurb_filename  = 'input.blurb';
-my $output_filename = '>output.blb';
+my $output_filename = 'output.blb';
 my $version = "perlBlorb 1.04";
 my $temp_dir = tempdir(CLEANUP => 1);
 
@@ -633,10 +633,20 @@ if ($ARGV[0]) {
 }
 
 if ($ARGV[1]) {
-	$output_filename = "> $ARGV[1]";
+	$output_filename = "$ARGV[1]";
 }
 
 author_chunk("$version on $blorbdate");
+
+if ($options{nobuild})
+{
+    if ($^O eq 'MSWin32' || $^O eq 'MSWin64')
+    {
+        $output_filename = "nul";
+    } else {
+	$output_filename = "/dev/null";
+    }
+}
 
 open (BLURB, $blurb_filename)
     or fatal("can't open blurb file $blurb_filename");
@@ -694,7 +704,7 @@ $iff_size = $past_idx_offset + $total_size;
 
 # Now construct the IFF file from the chunks
 
-open(CHUNK, $output_filename)
+open(CHUNK, ">$output_filename")
     or fatal("unable to open $output_filename for output");
 binmode(CHUNK);
 
@@ -769,8 +779,10 @@ for ($x = 0; $x < $chunk_count; $x = $x + 1)
 
 close(CHUNK);
 
+print STDOUT "! Blorb file data written to $output_filename\n";
 print STDOUT "! Completed: size $iff_size bytes ";
 print STDOUT "($pcount pictures, $scount sounds)\n";
+
 
 # ---------------------------------------------------------------------------
 
