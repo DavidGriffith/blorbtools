@@ -19,7 +19,7 @@ my $file_sep	= '/';		# Character used to separate directories in
 
 my $blurb_filename  = 'input.blurb';
 my $output_filename = 'output.blb';
-my $version = "perlBlorb 3.0";
+my $version = "perlBlorb 3.0, part of Blorbtools";
 my $temp_dir = tempdir(CLEANUP => 1);
 
 my $blurb_line = 0;

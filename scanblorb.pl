@@ -55,7 +55,7 @@ if ($options{all}) {
 
 sub array_diff(\@\@);
 
-my $version = "scanBlorb 3.0";
+my $version = "scanBlorb 3.0, part of Blorbtools";
 
 my ($sec,$min,$hour,$mday,$month,$year) = (localtime(time))[0, 1, 2, 3, 4, 5];
 
